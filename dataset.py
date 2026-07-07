@@ -817,6 +817,28 @@ def make_dataset(records: list[SampleRecord], data_cfg: dict[str, Any], augment_
     )
 
 
+def _limit_records_for_split(
+    records: list[SampleRecord],
+    data_cfg: dict[str, Any],
+    split: str,
+) -> list[SampleRecord]:
+    limits = data_cfg.get("max_samples_per_split")
+    if limits in (None, "", False):
+        return records
+    if isinstance(limits, int):
+        limit = limits
+    elif isinstance(limits, dict):
+        value = limits.get(split)
+        if value in (None, "", False):
+            return records
+        limit = int(value)
+    else:
+        raise ValueError("data.max_samples_per_split must be an int or split mapping")
+    if limit <= 0:
+        return []
+    return records[:limit]
+
+
 def build_datasets(config: dict[str, Any]) -> dict[str, Shallow2DInversionDataset]:
     data_cfg = config["data"]
     root = Path(data_cfg["root_dir"])
@@ -845,6 +867,7 @@ def build_datasets(config: dict[str, Any]) -> dict[str, Shallow2DInversionDatase
                 records = filter_records_for_quality(
                     records, data_cfg, split_name=split)
                 assign_group_ids(records, data_cfg.get("split", {}))
+                records = _limit_records_for_split(records, data_cfg, split)
             else:
                 records = []
             split_records_map[split] = records
@@ -852,6 +875,10 @@ def build_datasets(config: dict[str, Any]) -> dict[str, Shallow2DInversionDatase
         records = discover_samples(root, formal_only=formal_only)
         records = filter_records_for_quality(records, data_cfg)
         split_records_map = split_records(records, data_cfg.get("split", {}))
+        split_records_map = {
+            split: _limit_records_for_split(records, data_cfg, split)
+            for split, records in split_records_map.items()
+        }
 
     return {
         "train": make_dataset(split_records_map.get("train", []), data_cfg, augment_flip=True),

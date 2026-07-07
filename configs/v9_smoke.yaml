@@ -1,6 +1,6 @@
 seed: 42
 device: cuda
-save_dir: /data/2/lwt/projects/shallow_2d_inversion/runs/gprinvnet_like_baseline
+save_dir: /data/2/lwt/projects/shallow_2d_inversion/runs/v9_smoke
 resume: null
 
 data:
@@ -9,7 +9,10 @@ data:
   train_dir: null
   val_dir: null
   test_dir: null
-  max_samples_per_split: null
+  max_samples_per_split:
+    train: 4
+    val: 2
+    test: 2
   input_channels:
     - filtered_waveform
   optional_channels:
@@ -24,17 +27,12 @@ data:
   clip_normalized_vp: true
 
   class_label:
-    # Generated formal windows store raw facies ids plus -1 ignore labels.
-    # The dataset remaps raw ids to contiguous train ids and preserves -1
-    # for CrossEntropyLoss(ignore_index=-1).
-    raw_ids: marine_facies_v1   # 0..26, matching sha-sec/3D.py FACIES_NAMES
+    raw_ids: marine_facies_v1
     remap_to_contiguous: true
     ignore_index: -1
     unknown_policy: ignore
 
   quality_filters:
-    # Formal shallow-water windows may contain zero-padded time samples above
-    # t=0. Keep those samples only when the padded fraction is small.
     enabled: true
     formal_only: true
     max_time_window_padding_fraction: 0.05
@@ -43,19 +41,14 @@ data:
     reject_missing_metrics: false
 
   vp_loss_mask:
-    # Exclude the water/padding region above the seafloor from Vp regression.
-    # Semantic loss already uses class_label.ignore_index.
     enabled: true
     source: below_seafloor
     min_valid_fraction: 0.05
 
-  # Baseline sizes for a quick, memory-safe first training run.
-  # Formal files are [C,4128,5120] and [880,5120]; these values define
-  # memory-safe network resize targets, not another preprocessing dataset.
-  target_time_samples: 800
-  target_traces: 256
-  target_depth: 256
-  target_width: 256
+  target_time_samples: 256
+  target_traces: 64
+  target_depth: 64
+  target_width: 64
 
   split:
     train_ratio: 0.8
@@ -71,9 +64,9 @@ data:
 
 model:
   in_channels: 1
-  input_time_samples: 800
-  input_traces: 256
-  latent_depth: 128
+  input_time_samples: 256
+  input_traces: 64
+  latent_depth: 32
   encoder_channels:
     - 4
     - 8
@@ -81,13 +74,12 @@ model:
     - 32
     - 64
   mlp_hidden_dims:
-    - 1024
-    - 512
     - 256
-    - 256
-  decoder_stem_channels: 128
-  decoder_channels:
+    - 128
     - 64
+    - 64
+  decoder_stem_channels: 64
+  decoder_channels:
     - 64
     - 32
     - 32
@@ -111,23 +103,22 @@ semantic:
   uncertainty_weight: 0.5
   decoder_channels:
     - 64
-    - 64
     - 32
     - 32
 
 train:
-  batch_size: 2
-  epochs: 50
+  batch_size: 1
+  epochs: 1
   lr: 0.001
   weight_decay: 0.0
-  num_workers: 2
+  num_workers: 0
   pin_memory: true
   grad_clip_norm: 1.0
   amp: false
-  log_interval: 10
+  log_interval: 1
   visualize_interval: 1
   visualize_batches: 1
-  visualize_samples: 2
+  visualize_samples: 1
 
 loss:
   primary: smooth_l1
